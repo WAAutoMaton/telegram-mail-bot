@@ -15,13 +15,13 @@ import (
 )
 
 type Config struct {
-	Token string
+	Token      string
 	IMAPServer string
 	SMTPServer string
-	SMTPHost string
-	Username string
-	Password string
-	UID int
+	SMTPHost   string
+	Username   string
+	Password   string
+	UID        int
 }
 
 func initBotAPI(token string) (bot *tb.Bot) {
@@ -53,28 +53,28 @@ func readConfig() *Config {
 
 type DraftMail struct {
 	isActive bool
-	to string
-	subject string
-	body string
+	to       string
+	subject  string
+	body     string
 }
 
 func main() {
-	config:=readConfig()
+	config := readConfig()
 	b := initBotAPI(config.Token)
 
-	c := imap.NewClient(config.IMAPServer,config.Username,config.Password)
-	err:=c.Login()
-	if err!=nil {
+	c := imap.NewClient(config.IMAPServer, config.Username, config.Password)
+	err := c.Login()
+	if err != nil {
 		log.Fatal(err)
 	}
 
-	smtpClient:=smtp.NewClient(config.SMTPServer,config.SMTPHost,config.Username,config.Password)
+	smtpClient := smtp.NewClient(config.SMTPServer, config.SMTPHost, config.Username, config.Password)
 
 	b.Handle("/ping", func(m *tb.Message) {
 		if !m.Private() {
 			return
 		}
-		_,err:=b.Send(m.Sender, "Pong!")
+		_, err := b.Send(m.Sender, "Pong!")
 		logError(err)
 	})
 
@@ -82,14 +82,15 @@ func main() {
 		if !m.Private() {
 			return
 		}
-		if m.Sender.ID!=config.UID {
+		if m.Sender.ID != config.UID {
 			b.Send(m.Sender, "You aren't my admin!")
 			return
 		}
-		_,err:=b.Send(m.Sender, `Command List:
+		_, err := b.Send(m.Sender, `Command List:
 /help    show this message.
 /inbox   show the number of mails in INBOX.
-/mail <ID:int>   get a mail (ID 1 is the latest mail.)`)
+/mail <ID:int>   get a mail (ID 1 is the latest mail.)
+/new   create a new draft mail.`)
 		logError(err)
 	})
 
@@ -97,16 +98,16 @@ func main() {
 		if !m.Private() {
 			return
 		}
-		if m.Sender.ID!=config.UID {
+		if m.Sender.ID != config.UID {
 			b.Send(m.Sender, "You aren't my admin!")
 			return
 		}
-		t,err:=c.PullMailCount()
-		text:=fmt.Sprintf("There are %v mails in INBOX",strconv.Itoa(t))
-		if err!=nil {
-			text=fmt.Sprintf("Catched an error while trying to pull INBOX, error message: %v",err.Error())
+		t, err := c.PullMailCount()
+		text := fmt.Sprintf("There are %v mails in INBOX", strconv.Itoa(t))
+		if err != nil {
+			text = fmt.Sprintf("Catched an error while trying to pull INBOX, error message: %v", err.Error())
 		}
-		_,err=b.Send(m.Sender, text)
+		_, err = b.Send(m.Sender, text)
 		logError(err)
 	})
 
@@ -114,46 +115,46 @@ func main() {
 		if !m.Private() {
 			return
 		}
-		if m.Sender.ID!=config.UID {
+		if m.Sender.ID != config.UID {
 			b.Send(m.Sender, "You aren't my admin!")
 			return
 		}
 		var x int
-		_,err:=fmt.Sscanf(m.Payload,"%v",&x)
-		if err!=nil {
-			b.Send(m.Sender,"Use /mail <ID:int> to get a mail ( ID 1 is the latest mail )")
+		_, err := fmt.Sscanf(m.Payload, "%v", &x)
+		if err != nil {
+			b.Send(m.Sender, "Use /mail <ID:int> to get a mail ( ID 1 is the latest mail )")
 			return
 		}
-		n,err:=c.PullMailCount()
-		if err!=nil {
-			b.Send(m.Sender,"Catched an error, error message: "+err.Error())
+		n, err := c.PullMailCount()
+		if err != nil {
+			b.Send(m.Sender, "Catched an error, error message: "+err.Error())
 			return
 		}
-		text,_,err:=c.ReadMail(n-x+1)
-		if err!=nil {
-			b.Send(m.Sender,"Catched an error, error message: "+err.Error())
+		text, _, err := c.ReadMail(n - x + 1)
+		if err != nil {
+			b.Send(m.Sender, "Catched an error, error message: "+err.Error())
 			return
 		}
-		_,err=b.Send(m.Sender,omitText(text))
+		_, err = b.Send(m.Sender, omitText(text))
 		logError(err)
 	})
 
-	draftMail:= DraftMail{isActive: false}
-	b.Handle("/new",func(m *tb.Message) {
+	draftMail := DraftMail{isActive: false}
+	b.Handle("/new", func(m *tb.Message) {
 		if !m.Private() {
 			return
 		}
-		if m.Sender.ID!=config.UID {
+		if m.Sender.ID != config.UID {
 			b.Send(m.Sender, "You aren't my admin!")
 			return
 		}
 		if draftMail.isActive {
-			_,err:=b.Send(m.Sender, "Please use /cancel to delete last draft mail first.")
+			_, err := b.Send(m.Sender, "Please use /cancel to delete last draft mail first.")
 			logError(err)
 			return
 		}
-		draftMail=DraftMail{isActive: true}
-		_,err:=b.Send(m.Sender,
+		draftMail = DraftMail{isActive: true}
+		_, err := b.Send(m.Sender,
 			`A new draft mail has been created.
 Plase use:
 /to <receiver's mail :string>
@@ -168,16 +169,16 @@ Or use /cancel to delete the draft mail.`)
 		if !m.Private() {
 			return
 		}
-		if m.Sender.ID!=config.UID {
+		if m.Sender.ID != config.UID {
 			b.Send(m.Sender, "You aren't my admin!")
 			return
 		}
 		var err error
 		if draftMail.isActive {
-			draftMail.isActive=false
-			_,err=b.Send(m.Sender, "Delete draft mail successfully.")
+			draftMail.isActive = false
+			_, err = b.Send(m.Sender, "Delete draft mail successfully.")
 		} else {
-			_,err=b.Send(m.Sender, "No draft mail should be deleted.")
+			_, err = b.Send(m.Sender, "No draft mail should be deleted.")
 		}
 		logError(err)
 	})
@@ -191,13 +192,13 @@ Or use /cancel to delete the draft mail.`)
 			return
 		}
 		if !draftMail.isActive {
-			_,err:=b.Send(m.Sender, "No draft mail.\nPlease use /new to create one.")
+			_, err := b.Send(m.Sender, "No draft mail.\nPlease use /new to create one.")
 			logError(err)
 			return
 		}
-		to:=strings.Trim(m.Payload," \r\n\t")
-		draftMail.to=to
-		_,err:=b.Send(m.Sender, "Succeed.")
+		to := strings.Trim(m.Payload, " \r\n\t")
+		draftMail.to = to
+		_, err := b.Send(m.Sender, "Succeed.")
 		logError(err)
 	})
 
@@ -210,13 +211,13 @@ Or use /cancel to delete the draft mail.`)
 			return
 		}
 		if !draftMail.isActive {
-			_,err:=b.Send(m.Sender, "No draft mail.\nPlease use /new to create one.")
+			_, err := b.Send(m.Sender, "No draft mail.\nPlease use /new to create one.")
 			logError(err)
 			return
 		}
-		subject:=strings.Trim(m.Payload," \r\n\t")
-		draftMail.subject=subject
-		_,err:=b.Send(m.Sender, "Succeed.")
+		subject := strings.Trim(m.Payload, " \r\n\t")
+		draftMail.subject = subject
+		_, err := b.Send(m.Sender, "Succeed.")
 		logError(err)
 	})
 
@@ -229,20 +230,20 @@ Or use /cancel to delete the draft mail.`)
 			return
 		}
 		if !draftMail.isActive {
-			_,err:=b.Send(m.Sender, "No draft mail.\nPlease use /new to create one.")
+			_, err := b.Send(m.Sender, "No draft mail.\nPlease use /new to create one.")
 			logError(err)
 			return
 		}
-		body:=m.Text
-		if len(body) <5 {
-			_,err:=b.Send(m.Sender, "Empty body!")
+		body := m.Text
+		if len(body) < 5 {
+			_, err := b.Send(m.Sender, "Empty body!")
 			logError(err)
 			return
 		}
-		body=body[5:]
-		draftMail.body=body
+		body = body[5:]
+		draftMail.body = body
 		log.Println(draftMail.body)
-		_,err:=b.Send(m.Sender, "Succeed.")
+		_, err := b.Send(m.Sender, "Succeed.")
 		logError(err)
 	})
 
@@ -255,79 +256,78 @@ Or use /cancel to delete the draft mail.`)
 			return
 		}
 		if !draftMail.isActive {
-			_,err:=b.Send(m.Sender, "No draft mail.\nPlease use /new to create one.")
+			_, err := b.Send(m.Sender, "No draft mail.\nPlease use /new to create one.")
 			logError(err)
 			return
 		}
-		if len(draftMail.body)==0 {
-			_,err:=b.Send(m.Sender, "Body is empty!")
+		if len(draftMail.body) == 0 {
+			_, err := b.Send(m.Sender, "Body is empty!")
 			logError(err)
 			return
 		}
-		if len(draftMail.subject)==0 {
-			_,err:=b.Send(m.Sender, "Subject is empty!")
+		if len(draftMail.subject) == 0 {
+			_, err := b.Send(m.Sender, "Subject is empty!")
 			logError(err)
 			return
 		}
-		if len(draftMail.to)==0 {
-			_,err:=b.Send(m.Sender, "Receiver's mail address is empty!")
+		if len(draftMail.to) == 0 {
+			_, err := b.Send(m.Sender, "Receiver's mail address is empty!")
 			logError(err)
 			return
 		}
-		err:=smtpClient.Send([]string{draftMail.to},draftMail.subject,draftMail.body)
-		if err!=nil {
-			_,err=b.Send(m.Sender,"Catched an error while sending mail: "+err.Error())
+		err := smtpClient.Send([]string{draftMail.to}, draftMail.subject, draftMail.body)
+		if err != nil {
+			_, err = b.Send(m.Sender, "Catched an error while sending mail: "+err.Error())
 		} else {
-			_,err=b.Send(m.Sender,"Succeed.")
+			_, err = b.Send(m.Sender, "Succeed.")
 		}
 		logError(err)
-		draftMail.isActive=false
+		draftMail.isActive = false
 	})
-
 
 	b.Handle(tb.OnText, func(m *tb.Message) {
 		if !m.Private() {
 			return
 		}
-		if m.Sender.ID!=config.UID {
+		if m.Sender.ID != config.UID {
 			b.Send(m.Sender, "You aren't my admin!")
 			return
 		}
 		log.Println(m.Text)
 	})
 
-	_,err=c.UpdateMailCount()
+	_, err = c.UpdateMailCount()
 	logError(err)
 
-	go listen(c,b,config.UID)
+	go listen(c, b, config.UID)
 
 	b.Start()
 }
 
 func listen(c *imap.Client, b *tb.Bot, uid int) {
-	user:=&tb.User{ID:uid,IsBot: false}
-	d:=time.Duration(time.Minute*4)
-	t:=time.NewTicker(d)
+	user := &tb.User{ID: uid, IsBot: false}
+	d := time.Duration(time.Minute * 4)
+	t := time.NewTicker(d)
 	defer t.Stop()
 
 	for {
-		<- t.C
-		l,r,err:=c.GetNewMailRanges()
+		<-t.C
+		l, r, err := c.GetNewMailRanges()
 
-		if err!=nil {
+		if err != nil {
 			log.Println(err)
 		}
 
-		if l==0 {
+		if l == 0 {
 			continue
 		}
-		for i:=l; i<=r; i++ {
-			text,_,err:=c.ReadMail(i)
-			if err!=nil {
+		for i := l; i <= r; i++ {
+			text, _, err := c.ReadMail(i)
+			if err != nil {
 				log.Println(err)
 			} else {
-				_,err=b.Send(user,omitText(text))
-				if err!=nil {
+				_, err = b.Send(user, omitText(text))
+				if err != nil {
 					log.Println(err)
 				}
 			}
@@ -336,15 +336,15 @@ func listen(c *imap.Client, b *tb.Bot, uid int) {
 }
 
 func omitText(text string) string {
-	if len(text)>4000 {
-		return text[0:4000]+"\n<--Omit the following-->"
-	}  else {
+	if len(text) > 4000 {
+		return text[0:4000] + "\n<--Omit the following-->"
+	} else {
 		return text
 	}
 }
 
 func logError(e error) {
-	if e!=nil {
+	if e != nil {
 		log.Println(e)
 	}
 }
